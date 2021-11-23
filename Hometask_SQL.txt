@@ -1,0 +1,66 @@
+#задача 1
+
+SELECT name, COUNT(trip) as count
+FROM Passenger p LEFT JOIN Pass_in_trip t ON p.id = t.passenger
+GROUP BY name
+HAVING COUNT(trip) >= 1
+ORDER BY count DESC, name ASC 
+
+#задача 2
+
+SELECT TIMEDIFF(t2.end_pair, t1.start_pair) as time
+FROM Timepair t1, Timepair t2
+WHERE t1.id = 2 AND t2.id = 4
+
+#задача 3
+
+SELECT *
+FROM Rooms
+WHERE id in (SELECT room_id
+            FROM Reservations
+            WHERE WEEK(start_date) = 11 AND YEAR(start_date) = 2020)
+
+#задача 4
+
+SELECT classroom
+FROM Schedule
+GROUP BY classroom
+HAVING COUNT(*) = (SELECT MAX(usaged) 
+    				FROM (SELECT count(*) as usaged
+        					FROM Schedule
+        					GROUP BY classroom) as T)
+
+#задача 5
+
+SELECT ISNULL(SUM(out), 0) as qty, dt1, dt2
+FROM 
+	(SELECT LAG([date]) OVER(ORDER BY [date]) as dt1, [date] as dt2
+	FROM Income_o
+	GROUP BY [date]) as t1
+LEFT JOIN 
+	(SELECT date, out FROM Outcome_o) as t2
+ON t1.dt1 < t2.[date] AND t2.[date] <=t1.dt2
+WHERE dt1 IS NOT NULL
+GROUP BY dt1, dt2
+
+#задача 6
+
+SELECT Tab1.no as rn_1, Tab1.name as name_1, Tab1.date as date_1, 
+Tab2.no as rn_2, Tab2.name as name_2, Tab2.date as date_2
+FROM 
+	--таблица только левого суперстолбца с (вспомогательным) вторым порядковым номером по котому будет происходить join
+	(SELECT ROW_NUMBER() OVER(ORDER BY [date], name) no2, *
+	FROM 
+		--отсортированная таблица по дате и названию с колонками порядкового номера и колонкой номера группы
+		(SELECT ROW_NUMBER() OVER(ORDER BY [date], name) no, name, [date], NTILE(2) OVER(ORDER BY [date], name) as gr
+		FROM Battles) as group_t1
+	WHERE group_t1.gr = 1) as Tab1 
+LEFT JOIN
+	--таблица только правого суперстолбца с (вспомогательным) вторым порядковым номером по котому будет происходить join
+	(SELECT ROW_NUMBER() OVER(ORDER BY [date], name) no2, *
+	FROM 
+		--отсортированная таблица по дате и названию с колонками порядкового номера и колонкой номера группы
+		(SELECT ROW_NUMBER() OVER(ORDER BY [date], name) no, name, [date], NTILE(2) OVER(ORDER BY [date], name) as gr
+		FROM Battles) as group_t2
+	WHERE group_t2.gr = 2) as Tab2
+ON Tab1.no2 = Tab2.no2
